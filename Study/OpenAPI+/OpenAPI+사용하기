@@ -1,0 +1,123 @@
+from pykiwoom.kiwoom import *
+import pprint
+samsung = "005930"
+
+'''로그인'''
+kiwoom = Kiwoom()
+kiwoom.CommConnect(block=True)
+ # print("블록킹 로그인 완료")
+
+'''사용자 정보 얻어오기'''
+account_num = kiwoom.GetLoginInfo("ACCOUNT_CNT") #전체 계좌수
+accounts = kiwoom.GetLoginInfo("ACCNO") #전체 계좌 리스트
+user_id = kiwoom.GetLoginInfo("USER_ID") #사용자 ID
+user_name = kiwoom.GetLoginInfo("USER_NAME") #사용자명
+keyboard = kiwoom.GetLoginInfo("KEY_BSECGB") #키보드보안 해지여부 0:정상 1:해지
+firewall = kiwoom.GetLoginInfo("FIREW_SECGB") #방화벽 설정 여부 0:미설정 1:설정 2:해지
+
+print(account_num)
+print(accounts)
+print(user_id)
+print(user_name)
+print(keyboard)
+print(firewall)
+
+'''
+종목 코드 얻기
+로그인이 완료되면 GetCodeListByMarket 메서드 호출
+각 시장에 상장된 종목 코드 리스트를 얻을 수 있다
+'''
+kospi = kiwoom.GetCodeListByMarket('0')
+kosdaq = kiwoom.GetCodeListByMarket('10')
+etf = kiwoom.GetCodeListByMarket('8')
+
+print(len(kospi))
+print(len(kosdaq))
+print(len(etf))
+#코드 실행 시 코스피 1555종목, 코스닥 1415 종목 존재 
+#국내 주식 시장에 상장된 종목들은 6자리 종목 코드를 부여받는다
+
+'''
+종목명 얻기
+GetMasterCodeName 메서드에 
+종목코드를 전달하면 종목명을 얻을 수 있다
+'''
+name = kiwoom.GetMasterCodeName(samsung) #삼성전자
+print(name)
+
+'''
+연결 상태 확인
+CommConnect 메소드를 통해 로그인을 수행
+GetConnectState 메소드를 호출하여 연결상태 확인 가능
+만약 리턴 값이 0이면 서버에 연결 되지 않은 상태이고 
+리턴 값이 1이면 서버에 연결된 상태임을 의미한다
+'''
+
+state = kiwoom.GetConnectState()
+if state == 0:
+    print("미연결")
+elif state == 1:
+    print("연결완료")
+
+'''
+상장 주식수 얻기
+현재 키움 증권 API 에는 버그로 인해 상장 주식수가 
+21억이 넘더라도 21억까지만 표현 가능
+따라서 삼성전자의 경우 약 59억주가 상장되어 있는데
+이 값을 제대로 얻어 올 수 없다
+'''
+stock_cnt = kiwoom.GetMasterListedStockCnt(samsung) #삼성전쟈
+print(name, ":", stock_cnt)
+
+'''
+감리구분
+정상, 투자주의, 투자경고, 투자위험, 투자주의환기종목의 값을 가진다
+삼성전자(005930)의 경우 '정상' 값이 출력된다
+'''
+감리구분 = kiwoom.GetMasterConstruction(samsung)
+print("감리구분:",감리구분)
+
+'''
+상장일
+GetMasterListedStockDate 메소드 사용
+삼성전자의 상장일과 데이터 타입 출력
+'''
+상장일 = kiwoom.GetMasterListedStockDate(samsung)
+print("상장일:",상장일)
+#,type(상장일)) #데이터타입까지 함께 출력해보기 datetime.datetime 객체
+
+'''
+전일가
+GetMasterLastPrice 메소드 
+해당 메소드의 인자로 종목코드를 입력하면 전일 종가 리턴
+'''
+전일가 = kiwoom.GetMasterLastPrice(samsung)
+print("전일가:",int(전일가)) #, type(전일가))
+
+'''
+종목 상태
+GetMasterStockState 메소드
+종목 상태를 리턴하는 메소드
+'''
+종목상태 = kiwoom.GetMasterStockState(samsung)
+print("종목상태:",종목상태)
+
+'''
+테마그룹
+GetThemeGroupList
+테마그룹명과 각 테마그룹에 대한 아이디 값 
+'화장품' --> 330
+테마별 종목 코드
+GetThemeGroupCode 
+화장품 테마 그룹의 아이디는 '330' 
+이 값을 메소드의 인자로 호출하면 화장품 테마에 속하는 종목들의 종목 코드 리스트가 반환된다
+'''
+"""
+group = kiwoom.GetThemeGroupList(samsung)
+tickers = kiwoom.GetThemeGroupCode('330') #화장품테마 그룹 아이디
+pprint.pprint(group)
+for i in tickers:
+    ticker_name = kiwoom.GetMasterCodeName(i)
+    print(i,ticker_name)
+
+"""
