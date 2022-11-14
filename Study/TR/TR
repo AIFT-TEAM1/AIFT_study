@@ -28,10 +28,10 @@ class Kiwoom:
     def OnEventConnect(self, err_code):
         self.login = True
 
-    def SetInputValue(self, id, value):
+    def SetInputValue(self, id, value): # Tran 입력 값을 서버 통신 전에 입력한다
         self.ocx.dynamicCall("SetInputValue(QString, QString)", id, value)
 
-    def CommRqData(self, rqname, trcode, next, screen):
+    def CommRqData(self, rqname, trcode, next, screen): # Tran을 서버로 전송한다
         self.ocx.dynamicCall("CommRqData(QString, QString, int, QString)", rqname, trcode, next, screen)
 
     def GetCommData(self, trcode, rqname, index, item):
