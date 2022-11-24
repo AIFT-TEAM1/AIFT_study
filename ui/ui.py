@@ -8,6 +8,6 @@ class Ui_class():
 
         self.app = QApplication(sys.argv)
 
-        Kiwoom()
+        self.kiwoom = Kiwoom()
 
         self.app.exec_() #이벤트 루프 / 종료를 막아줌
