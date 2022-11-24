@@ -35,3 +35,4 @@ def errors(err_code):
     result = err_dic[err_code]
 
     return result
+    #에러 코드
