@@ -47,4 +47,5 @@
     <td>코넥스</td>
   </tr>
 </table>
-    
+
+slack - git 연동
