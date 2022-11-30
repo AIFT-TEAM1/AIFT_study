@@ -1,6 +1,7 @@
 from PyQt5.QAxContainer import *
 from PyQt5.QtCore import *
 from config.errorCode import *
+from PyQt5.QtTest import *
 
 class Kiwoom(QAxWidget):
     def __init__(self):
@@ -11,10 +12,13 @@ class Kiwoom(QAxWidget):
         ########이벤트 루프 모음########
         self.login_event_loop = None
         self.detail_account_info_event_loop = QEventLoop( )
+        self.calculator_event_loop = QEventLoop()
         ###############################
 
         ####스크린 번호 모음####
         self.screen_my_info = "2000"
+        self.screen_calculation_stock = "4000"
+        #########################
         
         #####변수 모음########
         self.account_num = None
@@ -23,6 +27,9 @@ class Kiwoom(QAxWidget):
         ####계좌관련 변수######
         self.use_money = 0
         self.use_money_percent = 0.5
+
+        #####종목 분석 용####
+        self.calcul_data = []
 
         #####변수 모음######
         self.account_stock_dict = {}
@@ -36,7 +43,9 @@ class Kiwoom(QAxWidget):
         self.get_account_info()
         self.detail_account_info() #예수금 가져오는 것
         self.detail_account_mystock() #계좌평가 잔고 내역 요청
-        self.not_concluded_account()#미체결 주식
+        self.not_concluded_account()#미체결 요청
+        
+        self.calculator_fnc() #종목 분석용, 임시용
 
     def get_ocx_instance(self):
         self.setControl("KHOPENAPI.KHOpenAPICtrl.1")
@@ -226,3 +235,101 @@ class Kiwoom(QAxWidget):
                 print("미체결 종목: %s " % self.not_account_stock_dict[order_no])
             
             self.detail_account_info_event_loop.exit()
+
+        if sRQName == "주식일봉차트조회":
+
+            code = self.dynamicCall("GetCommData(QString,QString,int,QString)",sTrCode, sRQName, 0, "종목코드")
+            code = code.strip()
+            print("%s 일봉 데이터 요청" % code)
+
+            cnt = self.dynamicCall("GetRepeatCnt(QString, Qstring)", sTrCode, sRQName)
+            print("데이터 일수 %s" % cnt)
+
+            #data = self.dynamicCall("GetCommData(QString,QString,int,QString)",sTrCode, sRQName)
+            #[['','현재가','거래량','거래대금','날짜','시가','고가','저가',''],['','현재가',....]
+
+            #한번 조회하면 600일차 까지 일봉데이터를 받아 올 수 있다
+
+            for i in range(cnt): #for문을 통해 하루하루씩 가져오고 있다
+                data = []
+
+                current_price = self.dynamicCall("GetCommData(QString,QString,int,QString)",sTrCode, sRQName, 0, "현재가")
+                value = self.dynamicCall("GetCommData(QString,QString,int,QString)",sTrCode, sRQName, 0, "거래량")
+                trading_value = self.dynamicCall("GetCommData(QString,QString,int,QString)",sTrCode, sRQName, 0, "거래대금")
+                date = self.dynamicCall("GetCommData(QString,QString,int,QString)",sTrCode, sRQName, 0, "일자")
+                start_price = self.dynamicCall("GetCommData(QString,QString,int,QString)",sTrCode, sRQName, 0, "시가")
+                high_price = self.dynamicCall("GetCommData(QString,QString,int,QString)",sTrCode, sRQName, 0, "고가")
+                low_price = self.dynamicCall("GetCommData(QString,QString,int,QString)",sTrCode, sRQName, 0, "저가")
+
+                data.append("")
+                data.append(current_price.strip())
+                data.append(value.strip())
+                data.append(trading_value.strip())
+                data.append(date.strip())
+                data.append(start_price.strip())
+                data.append(high_price.strip())
+                data.append(low_price.strip())
+                data.append("")
+
+                self.calcul_data.append(data.copy())
+
+            print(len(self.calcul_data))
+
+            # 주식 종합 차트
+
+            if sPreNext == "2":
+                self.day_kiwoom_db(code = code, sPrevNext= sPreNext)
+            else:
+                print("총 일수 %s" % len(self.calcul_data))
+
+                pass_success = False
+
+                #120일 이평선을 그릴만큼의 데이터가 있는 지 체크
+                if self.calcul_data == None or len(self.calcul_data) < 120:
+                    pass_success = False
+                else:
+                    #120일 이상 되면
+                    total_price = 0
+                    for value in self.calcul_data[:120]:
+                        total_price += int(value[1])
+
+                    moving_average_price = total_price / 120
+
+                    if int(self.calcul_data[0][7]) <= moving_average_price and moving_average_price <= int(self.calcul_data[0][6]):
+                        print("오늘 주가가 120이평선에 걸쳐 있는 것 확인")
+                    
+                    self.calculator_event_loop.exit()
+
+
+    def get_code_list_by_market(self, market_code):
+        '''종모 코드들 반환'''
+        code_list = self.dynamicCall("GetCodeListByMarket(QString)", market_code)
+        code_list = code_list.split(";")[:-1]
+
+        return code_list
+
+    def calculator_fnc(self):
+        code_list = self.get_code_list_by_market("10")
+        print("코스닥 갯수 %s" %len(code_list))
+
+        for idx, code in enumerate(code_list):
+
+            self.dynamicCall("DisconnectRealDate(QString)",self.screen_calculation_stock)
+
+            print("%s / %s : KOSDAQ Stock Code : is %s is updating ..... " % ((idx+1), len(code_list), code))
+
+            self.day_kiwoom_db(code = code)
+
+    def day_kiwoom_db(self, code = None, date = None, sPrevNext = "0"):
+
+        QTest.qWait(3600) 
+
+        self.dynamicCall("SetInputValue(Qstring, Qstring)","종목코드", code)
+        self.dynamicCall("SetInputValue(Qstring, Qstring)","수정주가구분", "1")
+
+        if date != None:
+            self.dynamicCall("SetInputValue(Qstring, Qstring)","기준일자", date)
+
+        self.dynamicCall("CommRqData(QString, QString, int, QString)", "주식일봉차트조회", "opt10081", sPrevNext, self.screen_calculation_stock)    
+
+        self.calculator_event_loop.exec_()
